@@ -31,6 +31,7 @@ const ReferralSchema = new Schema<IReferral>({
 
 // User Interface and Schema
 interface IUser extends Document {
+    guardian_address: string;
     referrer_code: string;
     isReferrer: boolean;
     points: number;
@@ -40,6 +41,7 @@ interface IUser extends Document {
 }
 
 const UserSchema = new Schema<IUser>({
+    guardian_address: { type: String, required: true, unique: true },
     referrer_code: { type: String, required: true, unique: true },
     isReferrer: { type: Boolean, required: true },
     points: { type: Number, required: true },
@@ -56,4 +58,4 @@ const UserSchema = new Schema<IUser>({
 
 const UserModel = mongoose.model<IUser>('User', UserSchema);
 
-export { UserModel };
+export { UserModel, IUser, IAssetInfo };
