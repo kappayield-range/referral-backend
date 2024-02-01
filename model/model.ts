@@ -56,6 +56,6 @@ const UserSchema = new Schema<IUser>({
     referrals: [ReferralSchema]
 });
 
-const UserModel = mongoose.model<IUser>('User', UserSchema);
+const UserModel = mongoose.model<IUser>('UserT', UserSchema);
 
 export { UserModel, IUser, IAssetInfo };

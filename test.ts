@@ -44,6 +44,7 @@ function normalizeData(data: any): any {
 // Insert dummy users into the database and retrieve them for comparison
 async function insertAndRetrieveDummyUsers() {
     const users: any = generateDummyData();
+    console.log(JSON.stringify(users));
     try {
         await UserModel.insertMany(users);
         console.log('Dummy users inserted successfully');
@@ -72,34 +73,53 @@ async function insertAndRetrieveDummyUsers() {
 
 function generateDummyData(): any[] {
     const users: any[] = [];
-    for (let i = 0; i < 5; i++) {
-        const user = {
-            referrer_code: `referrer${i}`,
-            isReferrer: i % 2 === 0,
-            points: Math.floor(Math.random() * 100),
-            earned_asset_by_day: new Map([
-                [`asset${i}`, new Map([
-                    [`day${i}`, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]]
-                ])]
-            ]),
+    const guardianAddress = "0x90140402f7a110fff86e211df16b20ace22d9b12";
+    const referralAddress = "0x0c9231a1132740b933ef866e07cf15219260203e";
+    const assets = ["0x912CE59144191C1204E64559FE8253a0e49E6548", "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"];
+    
+    // Function to generate epoch timestamps for 12 AM of the past few days
+    const generateTimestamps = (numberOfDays: number): string[] => {
+        let timestamps: string[] = [];
+        for (let i = 0; i < numberOfDays; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0); // Set to 12 AM
+            timestamps.push(Math.floor(date.getTime() / 1000).toString()); // Convert to epoch timestamp
+        }
+        return timestamps;
+    };
+
+    const timestamps = generateTimestamps(5); // Generate epoch timestamps for the past 5 days
+
+    const user = {
+        guardian_address: guardianAddress,
+        referrer_code: `referrer0`,
+        isReferrer: true,
+        points: Math.floor(Math.random() * 100),
+        earned_asset_by_day: new Map([
+            [assets[0], new Map(
+                timestamps.map(timestamp => [timestamp, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]])
+            )]
+        ]),
+        tvl_by_day: new Map([
+            [assets[1], new Map(
+                timestamps.map(timestamp => [timestamp, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]])
+            )]
+        ]),
+        referrals: [{
+            referral_address: referralAddress,
+            referrer_code: `code0`,
+            points_earned: Math.floor(Math.random() * 50),
             tvl_by_day: new Map([
-                [`asset${i}`, new Map([
-                    [`day${i}`, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]]
-                ])]
-            ]),
-            referrals: [{
-                referral_address: `address${i}`,
-                referrer_code: `code${i}`,
-                points_earned: Math.floor(Math.random() * 50),
-                tvl_by_day: new Map([
-                    [`asset${i}`, new Map([
-                        [`day${i}`, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]]
-                    ])]
-                ])
-            }]
-        };
-        users.push(user);
-    }
+                [assets[0], new Map(
+                    timestamps.map(timestamp => [timestamp, [{ absolute_value: Math.random() * 100, usd_value: Math.random() * 100 }]])
+                )]
+            ])
+        }]
+    };
+
+    users.push(user);
+
     return users;
 }
 

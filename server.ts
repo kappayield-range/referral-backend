@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import { UserModel, IUser, IAssetInfo } from './model/model'; // Update with the actual path
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -12,50 +14,61 @@ app.use(bodyParser.json());
 mongoose.connect(process.env.MONGODB_URI!);
 
 // Endpoint
-app.get('/url_api/total-referral-earnings/:guardianAddress', async (req: Request, res: Response) => {
+app.get('/total-referral-earnings/:guardianAddress', async (req, res) => {
     try {
         const { guardianAddress } = req.params;
-        const days = parseInt(req.query.days as string) || 7; // Defaults to 7 days
+        const days = parseInt(req.query.days as string) || 7;
 
         const endDate = new Date();
+        endDate.setHours(0, 0, 0, 0);
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - days);
+        startDate.setHours(0, 0, 0, 0);
 
         // Fetch user document
-        const user: IUser | null = await UserModel.findOne({ 'referrals.guardian_address': guardianAddress });
+        const user = await UserModel.findOne({ 'guardian_address': guardianAddress });
         if (!user) {
             return res.status(404).send('User not found');
         }
 
-        // Initialize earnings map
         let earningsMap = new Map<string, number>();
 
-        // Function to sum values
-        const sumValues = (map: Map<string, number>, date: string, assetMap: Map<string, IAssetInfo[]>) => {
-            let currentTotal = map.get(date) || 0;
-            assetMap.forEach(assetInfoArray => {
-                assetInfoArray.forEach(assetInfo => {
+        // Iterate over earned_asset_by_day
+        user.earned_asset_by_day.forEach((assetDataMap, assetAddress) => {
+            Object.entries(assetDataMap).forEach(([timestamp, assetInfoArray]) => {
+                const dateKey = new Date(parseInt(timestamp) * 1000);
+                
+                if (isNaN(dateKey.getTime())) {
+                    console.error(`Invalid timestamp: ${timestamp}`);
+                    return;
+                }
+        
+                let currentTotal = earningsMap.get(timestamp) || 0;
+                assetInfoArray.forEach((assetInfo: { usd_value: number; }) => {
                     currentTotal += assetInfo.usd_value;
                 });
+                earningsMap.set(timestamp, currentTotal);
             });
-            map.set(date, currentTotal);
-        };
-        
-        // Calculate earnings per day
-        user.earned_asset_by_day.forEach((assets, date) => {
-            const currentDate = new Date(date);
-            if (currentDate >= startDate && currentDate <= endDate) {
-                sumValues(earningsMap, date, assets);
-            }
         });
 
+        // Adjust startDate based on the earliest available data in earningsMap
+        const earliestTimestamp = Math.min(...Array.from(earningsMap.keys()).map(t => parseInt(t)));
+        const earliestDate = new Date(earliestTimestamp * 1000);
+        if (startDate < earliestDate) {
+            startDate.setTime(earliestDate.getTime());
+        }
+
+        // Convert startDate and endDate to Unix timestamps for key retrieval
+        const startTimestamp = Math.floor(startDate.getTime() / 1000);
+        const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
         // Calculate percentage change
-        const startValue = earningsMap.get(startDate.toISOString().split('T')[0]) || 0;
-        const endValue = earningsMap.get(endDate.toISOString().split('T')[0]) || 0;
+        const startValue = earningsMap.get(startTimestamp.toString()) || 0;
+        const endValue = earningsMap.get(endTimestamp.toString()) || 0;
         let change = 0;
         if (startValue !== 0) {
             change = ((endValue - startValue) / startValue) * 100;
-        }
+        }        
 
         // Convert Map to Array
         let data = Array.from(earningsMap).map(([date, amount]) => ({
@@ -63,9 +76,8 @@ app.get('/url_api/total-referral-earnings/:guardianAddress', async (req: Request
             timestamp: date
         }));
 
-        // Response structure
         res.json({
-            change: change.toFixed(2) + '%', // Change calculated
+            change: change.toFixed(2) + '%',
             data: data
         });
     } catch (error) {
@@ -75,7 +87,8 @@ app.get('/url_api/total-referral-earnings/:guardianAddress', async (req: Request
 });
 
 
-app.get('/url_api/earning-by-asset/:guardianAddress', async (req: Request, res: Response) => {
+
+app.get('/earning-by-asset/:guardianAddress', async (req: Request, res: Response) => {
     try {
         const { guardianAddress } = req.params;
 
@@ -120,7 +133,7 @@ const otherFee = new Map<string, number>([
 ]);
 
 
-app.get('/url_api/earning-by-referrals/:guardianAddress', async (req: Request, res: Response) => {
+app.get('/earning-by-referrals/:guardianAddress', async (req: Request, res: Response) => {
     try {
         const { guardianAddress } = req.params;
 

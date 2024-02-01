@@ -241,4 +241,6 @@ vault
 https://arbiscan.io/address/0x0f576e25bae89d73236ca8eb0e424e39168e4e0a#readProxyContract    
 
 0x90140402f7a110fff86e211df16b20ace22d9b12
+0x0c9231a1132740b933ef866e07cf15219260203e
+
 */
