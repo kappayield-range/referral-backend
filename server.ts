@@ -4,6 +4,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import { UserModel, IUser, IAssetInfo } from './model/model'; // Update with the actual path
 import dotenv from 'dotenv';
+import { AssetInfo } from './types/type';
 dotenv.config();
 
 const app = express();
@@ -87,13 +88,12 @@ app.get('/total-referral-earnings/:guardianAddress', async (req, res) => {
 });
 
 
-
 app.get('/earning-by-asset/:guardianAddress', async (req: Request, res: Response) => {
     try {
         const { guardianAddress } = req.params;
 
         // Fetch user document
-        const user: IUser | null = await UserModel.findOne({ 'referrals.referral_address': guardianAddress });
+        const user: IUser | null = await UserModel.findOne({ 'guardian_address': guardianAddress });
         if (!user) {
             return res.status(404).send('User not found');
         }
@@ -102,15 +102,20 @@ app.get('/earning-by-asset/:guardianAddress', async (req: Request, res: Response
         let assetAggregationMap = new Map<string, { amount: number, usdAmount: number }>();
 
         // Aggregate data
-        user.earned_asset_by_day.forEach(assetsMap => {
-            assetsMap.forEach((assetInfoArray, assetAddress) => {
-                let currentAssetData = assetAggregationMap.get(assetAddress) || { amount: 0, usdAmount: 0 };
-                assetInfoArray.forEach(assetInfo => {
-                    currentAssetData.amount += assetInfo.absolute_value;
-                    currentAssetData.usdAmount += assetInfo.usd_value;
-                });
-                assetAggregationMap.set(assetAddress, currentAssetData);
+        user.earned_asset_by_day.forEach((assetDays, assetAddress) => {
+            let currentAssetData = assetAggregationMap.get(assetAddress) || { amount: 0, usdAmount: 0 };
+
+            Object.values(assetDays).forEach((dayData: unknown) => {
+                // Check if dayData is an array before proceeding
+                if (Array.isArray(dayData)) {
+                    (dayData as AssetInfo[]).forEach(assetInfo => {
+                        currentAssetData.amount += assetInfo.absolute_value;
+                        currentAssetData.usdAmount += assetInfo.usd_value;
+                    });
+                }
             });
+
+            assetAggregationMap.set(assetAddress, currentAssetData);
         });
 
         // Convert map to array
@@ -127,6 +132,10 @@ app.get('/earning-by-asset/:guardianAddress', async (req: Request, res: Response
         res.status(500).send('Internal Server Error');
     }
 });
+
+
+
+
 const otherFee = new Map<string, number>([
     // Example: ['assetAddress1', 100], ['assetAddress2', 200]
     // Add actual asset address and values here
